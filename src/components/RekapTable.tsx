@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { Employee, AttendanceRecord, AttendanceStatus } from '../types';
 import { getDaysInMonth, getShortDayName, isWeekend } from '../utils/parser';
 import { StatusBadge } from './StatusBadge';
-import { Check, Edit2, Search, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Zap } from 'lucide-react';
+import { Check, Edit2, Search, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 interface RekapTableProps {
   month: number;
@@ -261,15 +261,6 @@ export const RekapTable: React.FC<RekapTableProps> = ({
             {filteredEmployees.length} dari {employees.length} Karyawan
           </span>
 
-          {/* Performance Anti-Lag Badge */}
-          <div
-            title="Optimasi Anti-Lag aktif: Baris tabel termemo & rendering halaman super cepat"
-            className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 select-none"
-          >
-            <Zap className="w-3.5 h-3.5 text-emerald-600 fill-emerald-500" />
-            <span>Anti-Lag Mode</span>
-          </div>
-
           {onClearAll && (
             <button
               onClick={onClearAll}
@@ -475,7 +466,7 @@ export const RekapTable: React.FC<RekapTableProps> = ({
               className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#C00000]/20"
             >
               <option value={20}>20 / hal</option>
-              <option value={25}>25 / hal (Cepat)</option>
+              <option value={25}>25 / hal</option>
               <option value={50}>50 / hal</option>
               <option value={100}>100 / hal</option>
               <option value="all">Semua</option>
