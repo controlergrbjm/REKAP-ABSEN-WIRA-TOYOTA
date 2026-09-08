@@ -10,7 +10,6 @@ interface NavbarProps {
   currentBranch: Branch | null;
   onBranchChange: (branch: Branch) => void;
   onOpenBranchModal: () => void;
-  onOpenDbModal?: () => void;
   currentUser: AppUser;
   onLogout: () => void;
 }
@@ -22,7 +21,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentBranch,
   onBranchChange,
   onOpenBranchModal,
-  onOpenDbModal,
   currentUser,
   onLogout,
 }) => {
@@ -114,18 +112,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Building2 className="w-4 h-4" />
           </button>
-
-          {/* Database Status Button */}
-          {onOpenDbModal && (
-            <button
-              onClick={onOpenDbModal}
-              title="Database Supabase Aktif & Terhubung"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 border border-emerald-200 text-xs font-bold text-emerald-800 transition-all cursor-pointer shadow-2xs"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ring-2 ring-emerald-300" />
-              <span className="hidden sm:inline">Supabase</span>
-            </button>
-          )}
 
           {/* User Menu */}
           <div className="relative" ref={menuRef}>

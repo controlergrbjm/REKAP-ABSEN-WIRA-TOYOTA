@@ -1,32 +1,29 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Branch, Employee, AttendanceRecord, AttendanceStatus, MonthPeriod } from './types';
+import { Branch, Employee, AttendanceRecord, AttendanceStatus } from './types';
 import { Navbar } from './components/Navbar';
 import { RekapDashboard } from './pages/RekapDashboard';
 import { MasterEmployees } from './pages/MasterEmployees';
 import { BranchSettingsModal } from './components/BranchSettingsModal';
-import { DatabaseStatusModal } from './components/DatabaseStatusModal';
 import { LoginPage } from './pages/LoginPage';
+import { AppUser, loadSession, clearSession } from './auth/users';
 import {
-  AppUser,
-  loadSession,
-  clearSession,
-  fetchBranches,
-  createBranch,
-  updateBranch as updateBranchDb,
-  deleteBranch as deleteBranchDb,
-  fetchEmployees,
+  getBranches,
+  saveBranch,
+  updateBranch,
+  deleteBranch,
+  getEmployees,
   upsertEmployee,
   updateEmployee,
   deleteEmployee,
   reorderEmployees,
-  clearEmployeesByBranch,
-  fetchAttendanceRecords,
+  getAttendanceRecords,
   upsertAttendanceRecord,
   updateAttendanceStatus,
-  saveAttendanceUpload,
-  fetchAvailablePeriods,
-  clearAllAttendance,
-} from './backend';
+  saveUpload,
+  getAvailablePeriods,
+  clearAllBranchData,
+  clearAllEmployees,
+} from './lib/localStore';
 import { parseAttendanceExcel, formatDateKey } from './utils/parser';
 import { STANDARD_TOYOTA_ROLES } from './utils/sampleData';
 
@@ -46,36 +43,26 @@ export function App() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
-  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<number>(7);
   const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [availablePeriods, setAvailablePeriods] = useState<MonthPeriod[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
   // Load branches once on mount (after login)
   useEffect(() => {
     if (!currentUser) return;
-    async function initBranches() {
-      const bList = await fetchBranches();
-      setBranches(bList);
-      if (bList.length > 0) setCurrentBranch(bList[0]);
-    }
-    initBranches();
+    const bList = getBranches();
+    setBranches(bList);
+    if (bList.length > 0) setCurrentBranch(bList[0]);
   }, [currentUser]);
 
-  // ── DATA RELOAD ────────────────────────────────────────────────────────────
-  const refreshData = useCallback(async () => {
+  // ── DATA RELOAD (Instantaneous synchronous) ────────────────────────────────
+  const refreshData = useCallback(() => {
     if (!currentBranch) return;
-    const [empList, periods] = await Promise.all([
-      fetchEmployees(currentBranch.id),
-      fetchAvailablePeriods(),
-    ]);
+    const empList = getEmployees(currentBranch.id);
     setEmployees(empList);
-    setAvailablePeriods(periods);
-
     const empIds = empList.map(e => e.id);
-    const recList = await fetchAttendanceRecords(empIds, currentMonth, currentYear);
+    const recList = getAttendanceRecords(empIds, currentMonth, currentYear);
     setRecords(recList);
   }, [currentBranch, currentMonth, currentYear]);
 
@@ -93,14 +80,15 @@ export function App() {
     return map;
   }, [records]);
 
-  const periodsWithFallback = useMemo(() => {
-    const hasCurrent = availablePeriods.some(p => p.month === currentMonth && p.year === currentYear);
-    return hasCurrent ? availablePeriods : [{ month: currentMonth, year: currentYear }, ...availablePeriods];
-  }, [currentMonth, currentYear, availablePeriods]);
+  const availablePeriods = useMemo(() => {
+    const fromUploads = getAvailablePeriods();
+    const hasCurrent = fromUploads.some(p => p.month === currentMonth && p.year === currentYear);
+    return hasCurrent ? fromUploads : [{ month: currentMonth, year: currentYear }, ...fromUploads];
+  }, [currentMonth, currentYear, records]);
 
-  // ── HANDLERS ───────────────────────────────────────────────────────────────
+  // ── HANDLERS (Fast, Instant, No-lag) ───────────────────────────────────────
 
-  const handleRawDataParsed = useCallback(async (
+  const handleRawDataParsed = useCallback((
     parsed: ReturnType<typeof parseAttendanceExcel>,
     fileName: string
   ) => {
@@ -110,17 +98,17 @@ export function App() {
     setCurrentMonth(month);
     setCurrentYear(year);
 
-    const upload = await saveAttendanceUpload({
+    const upload = saveUpload({
       branch_id: currentBranch.id,
       file_name: fileName,
       period_month: month,
       period_year: year,
     });
 
-    for (const parsedEmp of parsed.employees) {
-      const emp = await upsertEmployee(currentBranch.id, parsedEmp.pin, parsedEmp.name);
-      for (const rec of parsedEmp.records) {
-        await upsertAttendanceRecord({
+    parsed.employees.forEach(parsedEmp => {
+      const emp = upsertEmployee(currentBranch.id, parsedEmp.pin, parsedEmp.name);
+      parsedEmp.records.forEach(rec => {
+        upsertAttendanceRecord({
           employee_id: emp.id,
           date: formatDateKey(rec.date),
           status: 'H',
@@ -129,16 +117,18 @@ export function App() {
           source: 'auto',
           upload_id: upload.id,
         });
-      }
-    }
+      });
+    });
 
-    await refreshData();
+    // Immediately reload data into React state so all 75 employees appear instantly!
+    refreshData();
   }, [currentBranch, refreshData]);
 
-  const handleStatusChange = useCallback(async (
+  const handleStatusChange = useCallback((
     employeeId: string, date: string, status: AttendanceStatus
   ) => {
-    // Optimistic UI update for instant response
+    updateAttendanceStatus(employeeId, date, status);
+    // Optimistic state update — zero lag
     setRecords(prev => {
       const next = [...prev];
       const idx = next.findIndex(r => r.employee_id === employeeId && r.date === date);
@@ -160,88 +150,82 @@ export function App() {
       }
       return next;
     });
-
-    await updateAttendanceStatus(employeeId, date, status);
   }, []);
 
-  const handleUpdatePosition = useCallback(async (employeeId: string, newPosition: string) => {
+  const handleUpdatePosition = useCallback((employeeId: string, newPosition: string) => {
+    updateEmployee(employeeId, { position: newPosition });
     setEmployees(prev =>
       prev.map(e => e.id === employeeId ? { ...e, position: newPosition } : e)
     );
-    await updateEmployee(employeeId, { position: newPosition });
   }, []);
 
-  const handleAddEmployee = useCallback(async (
+  const handleAddEmployee = useCallback((
     name: string, pin: string | null, position: string | null
   ) => {
     if (!currentBranch) return;
-    const emp = await upsertEmployee(currentBranch.id, pin, name);
-    if (position) await updateEmployee(emp.id, { position });
-    await refreshData();
+    const emp = upsertEmployee(currentBranch.id, pin, name);
+    if (position) updateEmployee(emp.id, { position });
+    refreshData();
   }, [currentBranch, refreshData]);
 
-  const handleUpdateEmployee = useCallback(async (id: string, updates: Partial<Employee>) => {
-    await updateEmployee(id, updates);
-    await refreshData();
+  const handleUpdateEmployee = useCallback((id: string, updates: Partial<Employee>) => {
+    updateEmployee(id, updates);
+    refreshData();
   }, [refreshData]);
 
-  const handleDeleteEmployee = useCallback(async (id: string) => {
-    await deleteEmployee(id);
-    await refreshData();
+  const handleDeleteEmployee = useCallback((id: string) => {
+    deleteEmployee(id);
+    refreshData();
   }, [refreshData]);
 
-  const handleReorderEmployees = useCallback(async (orderedIds: string[]) => {
-    if (!currentBranch) return;
-    await reorderEmployees(currentBranch.id, orderedIds);
-    await refreshData();
-  }, [currentBranch, refreshData]);
+  const handleReorderEmployees = useCallback((orderedIds: string[]) => {
+    reorderEmployees(orderedIds);
+    refreshData();
+  }, [refreshData]);
 
-  const handleSeedStandardPositions = useCallback(async () => {
+  const handleSeedStandardPositions = useCallback(() => {
     if (employees.length === 0) {
       alert('Tambahkan atau upload karyawan terlebih dahulu.');
       return;
     }
-    for (let index = 0; index < employees.length; index++) {
-      const emp = employees[index];
-      const role = STANDARD_TOYOTA_ROLES[index % STANDARD_TOYOTA_ROLES.length];
-      await updateEmployee(emp.id, { position: role });
-    }
-    await refreshData();
+    employees.forEach((emp, index) => {
+      updateEmployee(emp.id, { position: STANDARD_TOYOTA_ROLES[index % STANDARD_TOYOTA_ROLES.length] });
+    });
+    refreshData();
   }, [employees, refreshData]);
 
-  const handleAddBranch = useCallback(async (name: string, code: string) => {
-    const newB = await createBranch({ name, code });
-    const bList = await fetchBranches();
-    setBranches(bList);
+  const handleAddBranch = useCallback((name: string, code: string) => {
+    const newB = saveBranch({ name, code });
+    setBranches(getBranches());
     setCurrentBranch(newB);
   }, []);
 
-  const handleUpdateBranch = useCallback(async (id: string, name: string, code: string) => {
-    await updateBranchDb(id, { name, code });
-    const bList = await fetchBranches();
+  const handleUpdateBranch = useCallback((id: string, name: string, code: string) => {
+    updateBranch(id, { name, code });
+    const bList = getBranches();
     setBranches(bList);
     const updated = bList.find(b => b.id === id);
     if (updated && currentBranch?.id === id) setCurrentBranch(updated);
   }, [currentBranch]);
 
-  const handleDeleteBranch = useCallback(async (id: string) => {
-    await deleteBranchDb(id);
-    const bList = await fetchBranches();
+  const handleDeleteBranch = useCallback((id: string) => {
+    deleteBranch(id);
+    const bList = getBranches();
     setBranches(bList);
     if (currentBranch?.id === id && bList.length > 0) setCurrentBranch(bList[0]);
   }, [currentBranch]);
 
-  const handleClearAllData = useCallback(async () => {
+  const handleClearAllData = useCallback(() => {
     if (!currentBranch) return;
-    await clearAllAttendance(currentBranch.id);
-    await refreshData();
+    clearAllBranchData(currentBranch.id);
+    refreshData();
   }, [currentBranch, refreshData]);
 
-  const handleClearAllEmployees = useCallback(async () => {
+  const handleClearAllEmployees = useCallback(() => {
     if (!currentBranch) return;
     if (confirm(`⚠️ Hapus SEMUA karyawan di cabang "${currentBranch.name}"?\n\nSemua data absensi dan master karyawan akan dikosongkan.`)) {
-      await clearEmployeesByBranch(currentBranch.id);
-      await refreshData();
+      clearAllEmployees(currentBranch.id);
+      refreshData();
     }
   }, [currentBranch, refreshData]);
 
@@ -260,7 +244,6 @@ export function App() {
         currentBranch={currentBranch}
         onBranchChange={setCurrentBranch}
         onOpenBranchModal={() => setIsBranchModalOpen(true)}
-        onOpenDbModal={() => setIsDbModalOpen(true)}
         currentUser={currentUser}
         onLogout={handleLogout}
       />
@@ -274,7 +257,7 @@ export function App() {
               attendanceMap={attendanceMap}
               currentMonth={currentMonth}
               currentYear={currentYear}
-              availablePeriods={periodsWithFallback}
+              availablePeriods={availablePeriods}
               onPeriodChange={(m, y) => { setCurrentMonth(m); setCurrentYear(y); }}
               onRawDataParsed={handleRawDataParsed}
               onStatusChange={handleStatusChange}
@@ -307,11 +290,6 @@ export function App() {
         onAddBranch={handleAddBranch}
         onUpdateBranch={handleUpdateBranch}
         onDeleteBranch={handleDeleteBranch}
-      />
-
-      <DatabaseStatusModal
-        isOpen={isDbModalOpen}
-        onClose={() => setIsDbModalOpen(false)}
       />
 
       <footer className="border-t border-gray-200 bg-white py-6 mt-12">

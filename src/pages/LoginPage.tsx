@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, LogIn, Shield, Building2 } from 'lucide-react';
-import { loginUser, AppUser } from '../backend';
+import { authenticate, saveSession, AppUser } from '../auth/users';
 
 interface LoginPageProps {
   onLogin: (user: AppUser) => void;
@@ -13,24 +13,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    try {
-      const result = await loginUser(username, password);
-      if (result.user) {
-        onLogin(result.user);
+    setTimeout(() => {
+      const user = authenticate(username, password);
+      if (user) {
+        saveSession(user);
+        onLogin(user);
       } else {
-        setError(result.error || 'Username atau Password salah. Silakan coba lagi.');
+        setError('Username atau Password salah. Silakan coba lagi.');
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem';
-      setError(msg);
-    } finally {
       setIsLoading(false);
-    }
+    }, 400);
   };
 
   return (
