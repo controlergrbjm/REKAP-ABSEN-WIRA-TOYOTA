@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { Employee, AttendanceRecord, Branch } from '../types';
 import { getDaysInMonth, getShortDayName, isWeekend, INDONESIAN_MONTHS } from './parser';
+import { sortEmployeesByMasterOrder } from '../constants/masterEmployees';
 
 interface ExportOptions {
   branch: Branch;
@@ -219,14 +220,9 @@ export async function exportToExcel({
   }
 
   // ── TABLE DATA ROWS ──
-  // Sort: karyawan dengan jabatan → urut sort_order, karyawan baru (tanpa jabatan) → otomatis ke bawah
-  const sortedEmployees = [...employees].sort((a, b) => {
-    const aHasPosition = !!(a.position && a.position.trim());
-    const bHasPosition = !!(b.position && b.position.trim());
-    if (aHasPosition && !bHasPosition) return -1; // a ke atas, b ke bawah
-    if (!aHasPosition && bHasPosition) return 1;  // a ke bawah, b ke atas
-    return a.sort_order - b.sort_order; // sama-sama ada/tidak jabatan → urut sort_order
-  });
+  // Urutan karyawan persis seperti susunan Master 73 Karyawan (foto referensi).
+  // Karyawan baru (yang tidak ada di daftar 73 nama master) otomatis diletakkan di paling bawah.
+  const sortedEmployees = sortEmployeesByMasterOrder(employees);
 
   let currentRowIdx = 8;
   sortedEmployees.forEach((emp, index) => {

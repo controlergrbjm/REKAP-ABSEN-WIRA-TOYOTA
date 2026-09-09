@@ -4,6 +4,7 @@
  */
 
 import { Branch, Employee, AttendanceRecord, AttendanceUpload } from '../types';
+import { getMasterOrderIndex, sortEmployeesByMasterOrder } from '../constants/masterEmployees';
 
 const KEYS = {
   branches: 'wira_branches',
@@ -78,7 +79,7 @@ export function deleteBranch(id: string): void {
 export function getEmployees(branchId?: string): Employee[] {
   const employees = load<Employee>(KEYS.employees);
   const filtered = branchId ? employees.filter(e => e.branch_id === branchId) : employees;
-  return filtered.sort((a, b) => a.sort_order - b.sort_order);
+  return sortEmployeesByMasterOrder(filtered);
 }
 
 export function getEmployeeByPin(pin: string, branchId: string): Employee | null {
@@ -115,20 +116,36 @@ export function upsertEmployee(
 
   if (existing) return existing;
 
+  const masterIdx = getMasterOrderIndex(name);
   const maxOrder = employees.reduce((max, e) => Math.max(max, e.sort_order), 0);
+  const assignedSortOrder = masterIdx <= 73 ? masterIdx : Math.max(maxOrder, 73) + 1;
+
   const newEmployee: Employee = {
     id: generateId(),
     branch_id: branchId,
     pin,
     name,
     position: null,
-    sort_order: maxOrder + 1,
+    sort_order: assignedSortOrder,
     created_at: now(),
     updated_at: now(),
   };
   employees.push(newEmployee);
   save(KEYS.employees, employees);
   return newEmployee;
+}
+
+export function syncEmployeesToMasterOrder(branchId: string): void {
+  const employees = load<Employee>(KEYS.employees);
+  const branchEmps = employees.filter(e => e.branch_id === branchId);
+  const sorted = sortEmployeesByMasterOrder(branchEmps);
+  sorted.forEach((emp, idx) => {
+    const target = employees.find(e => e.id === emp.id);
+    if (target) {
+      target.sort_order = idx + 1;
+    }
+  });
+  save(KEYS.employees, employees);
 }
 
 export function updateEmployee(id: string, updates: Partial<Employee>): Employee | null {

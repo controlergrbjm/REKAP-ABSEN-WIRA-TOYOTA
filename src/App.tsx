@@ -23,6 +23,7 @@ import {
   getAvailablePeriods,
   clearAllBranchData,
   clearAllEmployees,
+  syncEmployeesToMasterOrder,
 } from './lib/localStore';
 import { parseAttendanceExcel, formatDateKey } from './utils/parser';
 import { STANDARD_TOYOTA_ROLES } from './utils/sampleData';
@@ -183,6 +184,12 @@ export function App() {
     refreshData();
   }, [refreshData]);
 
+  const handleSyncMasterOrder = useCallback(() => {
+    if (!currentBranch) return;
+    syncEmployeesToMasterOrder(currentBranch.id);
+    refreshData();
+  }, [currentBranch, refreshData]);
+
   const handleSeedStandardPositions = useCallback(() => {
     if (employees.length === 0) {
       alert('Tambahkan atau upload karyawan terlebih dahulu.');
@@ -274,6 +281,7 @@ export function App() {
               onReorderEmployees={handleReorderEmployees}
               onSeedStandardPositions={handleSeedStandardPositions}
               onClearAllEmployees={handleClearAllEmployees}
+              onSyncMasterOrder={handleSyncMasterOrder}
             />
           )
         ) : (

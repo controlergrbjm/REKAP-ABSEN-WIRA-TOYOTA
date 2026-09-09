@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Employee } from '../types';
+import { getMasterOrderIndex, sortEmployeesByMasterOrder } from '../constants/masterEmployees';
 import * as localStore from '../lib/localStore';
 
 export async function fetchEmployees(branchId?: string): Promise<Employee[]> {
@@ -10,7 +11,7 @@ export async function fetchEmployees(branchId?: string): Promise<Employee[]> {
 
       const { data, error } = await query;
       if (!error && data) {
-        return data as Employee[];
+        return sortEmployeesByMasterOrder(data as Employee[]);
       }
     } catch (err) {
       console.warn('[employeeService] Supabase fetch failed, fallback to localStore:', err);
@@ -63,7 +64,8 @@ export async function upsertEmployee(
           .select('id', { count: 'exact', head: true })
           .eq('branch_id', branchId);
 
-        const newSort = sortOrder ?? (count || 0) + 1;
+        const masterIdx = getMasterOrderIndex(name);
+        const newSort = sortOrder ?? (masterIdx <= 73 ? masterIdx : (count || 0) + 74);
         const newRecord = {
           branch_id: branchId,
           pin: pin || null,

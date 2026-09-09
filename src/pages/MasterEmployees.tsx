@@ -12,6 +12,7 @@ import {
   X,
   Sparkles,
   HelpCircle,
+  ListOrdered,
 } from 'lucide-react';
 
 interface MasterEmployeesProps {
@@ -23,6 +24,7 @@ interface MasterEmployeesProps {
   onReorderEmployees: (orderedIds: string[]) => void;
   onSeedStandardPositions: () => void;
   onClearAllEmployees?: () => void;
+  onSyncMasterOrder?: () => void;
 }
 
 export const MasterEmployees: React.FC<MasterEmployeesProps> = ({
@@ -34,6 +36,7 @@ export const MasterEmployees: React.FC<MasterEmployeesProps> = ({
   onReorderEmployees,
   onSeedStandardPositions,
   onClearAllEmployees,
+  onSyncMasterOrder,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -119,6 +122,17 @@ export const MasterEmployees: React.FC<MasterEmployeesProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {onSyncMasterOrder && employees.length > 0 && (
+            <button
+              onClick={onSyncMasterOrder}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold transition-all cursor-pointer"
+              title="Urutkan susunan karyawan persis foto master 73 karyawan, dan karyawan baru otomatis ke paling bawah"
+            >
+              <ListOrdered className="w-3.5 h-3.5 text-blue-600" />
+              <span>Urutkan Sesuai Master 73</span>
+            </button>
+          )}
+
           <button
             onClick={onSeedStandardPositions}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-all cursor-pointer"
