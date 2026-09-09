@@ -219,8 +219,17 @@ export async function exportToExcel({
   }
 
   // ── TABLE DATA ROWS ──
+  // Sort: karyawan dengan jabatan → urut sort_order, karyawan baru (tanpa jabatan) → otomatis ke bawah
+  const sortedEmployees = [...employees].sort((a, b) => {
+    const aHasPosition = !!(a.position && a.position.trim());
+    const bHasPosition = !!(b.position && b.position.trim());
+    if (aHasPosition && !bHasPosition) return -1; // a ke atas, b ke bawah
+    if (!aHasPosition && bHasPosition) return 1;  // a ke bawah, b ke atas
+    return a.sort_order - b.sort_order; // sama-sama ada/tidak jabatan → urut sort_order
+  });
+
   let currentRowIdx = 8;
-  employees.forEach((emp, index) => {
+  sortedEmployees.forEach((emp, index) => {
     const row = sheet.getRow(currentRowIdx);
     row.height = 20;
     const isEven = index % 2 === 0;
