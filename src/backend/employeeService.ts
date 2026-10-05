@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Employee } from '../types';
-import { getMasterOrderIndex, sortEmployeesByMasterOrder } from '../constants/masterEmployees';
+import { getMasterOrderIndex, getMasterPosition, sortEmployeesByMasterOrder } from '../constants/masterEmployees';
 import * as localStore from '../lib/localStore';
 
 export async function fetchEmployees(branchId?: string): Promise<Employee[]> {
@@ -42,12 +42,13 @@ export async function upsertEmployee(
       const existing = existingList && existingList[0] ? existingList[0] : null;
 
       if (existing) {
+        const resolvedPosition = position || getMasterPosition(name) || undefined;
         const updates: Partial<Employee> = {
           name: name.trim(),
           updated_at: new Date().toISOString(),
         };
         if (pin) updates.pin = pin;
-        if (position && !existing.position) updates.position = position;
+        if (resolvedPosition && !existing.position) updates.position = resolvedPosition;
 
         const { data: updated } = await supabase
           .from('employees')
@@ -66,11 +67,12 @@ export async function upsertEmployee(
 
         const masterIdx = getMasterOrderIndex(name);
         const newSort = sortOrder ?? (masterIdx <= 73 ? masterIdx : (count || 0) + 74);
+        const resolvedPosition = position || getMasterPosition(name) || null;
         const newRecord = {
           branch_id: branchId,
           pin: pin || null,
           name: name.trim(),
-          position: position || null,
+          position: resolvedPosition,
           is_active: true,
           sort_order: newSort,
         };
@@ -89,9 +91,10 @@ export async function upsertEmployee(
   }
 
   const emp = localStore.upsertEmployee(branchId, pin, name);
-  if (position && !emp.position) {
-    localStore.updateEmployee(emp.id, { position });
-    emp.position = position;
+  const resolvedPosition = position || getMasterPosition(name) || undefined;
+  if (resolvedPosition && !emp.position) {
+    localStore.updateEmployee(emp.id, { position: resolvedPosition });
+    emp.position = resolvedPosition;
   }
   return emp;
 }
