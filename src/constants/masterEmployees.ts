@@ -97,6 +97,97 @@ export function cleanName(str: string): string {
 }
 
 /**
+ * Alias nama-nama yang sering berbeda dari mesin fingerprint vs daftar master.
+ * Key   = cleanName(nama di mesin/file absen)
+ * Value = nama PERSIS di MASTER_EMPLOYEES
+ */
+export const NAME_ALIASES: Record<string, string> = {
+  // Ronny Fernanda
+  'ronyfernanda'           : 'Ronny Fernanda',
+  'ronifernanda'           : 'Ronny Fernanda',
+
+  // Rudi Setya Darma
+  'rudis'                  : 'Rudi Setya Darma',
+  'rudisetya'              : 'Rudi Setya Darma',
+
+  // Luckyta Dewi K
+  'luckytadewi'            : 'Luckyta Dewi K',
+  'lukytadewik'            : 'Luckyta Dewi K',
+
+  // BUDI HARIYADI
+  'budihariyad'            : 'BUDI HARIYADI',
+  'budihariyardi'          : 'BUDI HARIYADI',
+  'budihariyards'          : 'BUDI HARIYADI',
+
+  // FRENGKY AGUS MULIYANTO
+  'frengky'                : 'FRENGKY AGUS MULIYANTO',
+  'frengkyagus'            : 'FRENGKY AGUS MULIYANTO',
+
+  // RICHARD TANUJAYA SANTOSO
+  'richardt'               : 'RICHARD TANUJAYA SANTOSO',
+  'richardtanujaya'        : 'RICHARD TANUJAYA SANTOSO',
+  'richardts'              : 'RICHARD TANUJAYA SANTOSO',
+
+  // Azizah Rahmaniah
+  'azizahr'                : 'Azizah Rahmaniah',
+  'azizahrahmania'         : 'Azizah Rahmaniah',
+  'azizahrahmanian'        : 'Azizah Rahmaniah',
+
+  // BAGAS ADE PRASETYO
+  'bagasade'               : 'BAGAS ADE PRASETYO',
+  'bagasadep'              : 'BAGAS ADE PRASETYO',
+
+  // SYARIF HIDAYAT
+  'syarifh'                : 'SYARIF HIDAYAT',
+  'syarifhidayat'          : 'SYARIF HIDAYAT',
+
+  // Ahmad Fasya Ramadhani
+  'afasyar'                : 'Ahmad Fasya Ramadhani',
+  'ahmadfasya'             : 'Ahmad Fasya Ramadhani',
+  'ahmadfasyar'            : 'Ahmad Fasya Ramadhani',
+
+  // M. Husein — backup (seharusnya match via clean tapi jaga-jaga)
+  'mhusein'                : 'M. Husein',
+
+  // M. Ramadani — backup
+  'mramadani'              : 'M. Ramadani',
+
+  // Abdu Rahman — backup
+  'abdurahman'             : 'Abdu Rahman',
+
+  // Muhamad Zaki
+  'mzaki'                  : 'Muhamad Zaki',
+  'muhamadzaki'            : 'Muhamad Zaki',
+
+  // FIRMAN ABDI
+  'firmana'                : 'FIRMAN ABDI',
+  'firmanabdi'             : 'FIRMAN ABDI',
+
+  // A. Siddiq. M
+  'ahmadshiddiqm'          : 'A. Siddiq. M',
+  'asiddiqm'               : 'A. Siddiq. M',
+  'ahmadsiddiqm'           : 'A. Siddiq. M',
+
+  // Sugjanto — backup
+  'sugjanto'               : 'Sugjanto',
+
+  // M.Subhan
+  'subhan'                 : 'M.Subhan',
+  'msubhan'                : 'M.Subhan',
+
+  // ILHAM MAULANA
+  'ilhammaulana'           : 'ILHAM MAULANA',
+
+  // Eka Wahyu Yuliana
+  'ekawahyuyuliana'        : 'Eka Wahyu Yuliana',
+  'ekawahyu'               : 'Eka Wahyu Yuliana',
+
+  // M.Fahmi
+  'mfahmi'                 : 'M.Fahmi',
+  'fahmi'                  : 'M.Fahmi',
+};
+
+/**
  * Mencari posisi nomor urut (1-based index) dari nama karyawan sesuai urutan master 73 foto.
  * Menggunakan pencocokan berjenjang:
  * 1. Exact match (case & simbol)
@@ -123,6 +214,13 @@ export function getMasterOrderIndex(name: string): number {
   const cleanIdx = MASTER_EMPLOYEE_ORDER.findIndex(m => cleanName(m) === clean);
   if (cleanIdx !== -1) return cleanIdx + 1;
 
+  // 4. Alias lookup (nama dari mesin fingerprint yang berbeda dari master)
+  const aliasTarget = NAME_ALIASES[clean];
+  if (aliasTarget) {
+    const aliasIdx = MASTER_EMPLOYEE_ORDER.findIndex(m => m === aliasTarget);
+    if (aliasIdx !== -1) return aliasIdx + 1;
+  }
+
   // Karyawan baru -> letakkan di bawah
   return 9999;
 }
@@ -148,6 +246,13 @@ export function getMasterPosition(name: string): string | null {
   const clean = cleanName(name);
   entry = MASTER_EMPLOYEES.find(m => cleanName(m.name) === clean);
   if (entry) return entry.position;
+
+  // 4. Alias lookup
+  const aliasTarget = NAME_ALIASES[clean];
+  if (aliasTarget) {
+    entry = MASTER_EMPLOYEES.find(m => m.name === aliasTarget);
+    if (entry) return entry.position;
+  }
 
   return null;
 }
