@@ -4,7 +4,7 @@
  */
 
 import { Branch, Employee, AttendanceRecord, AttendanceUpload } from '../types';
-import { getMasterOrderIndex, sortEmployeesByMasterOrder } from '../constants/masterEmployees';
+import { getMasterOrderIndex, getMasterPosition, sortEmployeesByMasterOrder } from '../constants/masterEmployees';
 
 const KEYS = {
   branches: 'wira_branches',
@@ -79,6 +79,12 @@ export function deleteBranch(id: string): void {
 export function getEmployees(branchId?: string): Employee[] {
   const employees = load<Employee>(KEYS.employees);
   const filtered = branchId ? employees.filter(e => e.branch_id === branchId) : employees;
+  filtered.forEach(e => {
+    if (!e.position) {
+      const pos = getMasterPosition(e.name);
+      if (pos) e.position = pos;
+    }
+  });
   return sortEmployeesByMasterOrder(filtered);
 }
 
@@ -114,7 +120,16 @@ export function upsertEmployee(
     );
   }
 
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.position) {
+      const pos = getMasterPosition(name);
+      if (pos) {
+        existing.position = pos;
+        save(KEYS.employees, employees);
+      }
+    }
+    return existing;
+  }
 
   const masterIdx = getMasterOrderIndex(name);
   const maxOrder = employees.reduce((max, e) => Math.max(max, e.sort_order), 0);
@@ -125,7 +140,7 @@ export function upsertEmployee(
     branch_id: branchId,
     pin,
     name,
-    position: null,
+    position: getMasterPosition(name),
     sort_order: assignedSortOrder,
     created_at: now(),
     updated_at: now(),

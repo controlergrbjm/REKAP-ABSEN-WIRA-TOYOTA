@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { Employee, AttendanceRecord, Branch } from '../types';
 import { getDaysInMonth, getShortDayName, isWeekend, INDONESIAN_MONTHS } from './parser';
-import { sortEmployeesByMasterOrder } from '../constants/masterEmployees';
+import { sortEmployeesByMasterOrder, getMasterPosition } from '../constants/masterEmployees';
 
 interface ExportOptions {
   branch: Branch;
@@ -247,9 +247,10 @@ export async function exportToExcel({
 
     // JABATAN
     const cellJabatan = row.getCell(3);
-    cellJabatan.value = emp.position || '-';
+    const resolvedPosition = emp.position || getMasterPosition(emp.name) || '-';
+    cellJabatan.value = resolvedPosition;
     cellJabatan.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
-    cellJabatan.font = { name: 'Calibri', size: 9.5, italic: !emp.position };
+    cellJabatan.font = { name: 'Calibri', size: 9.5, italic: resolvedPosition === '-' };
     cellJabatan.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: defaultBg } };
 
     const empRecords = attendanceMap[emp.id] || {};
