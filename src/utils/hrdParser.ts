@@ -190,15 +190,15 @@ export function parseCellToHrdStatus(cellVal: unknown): HrdDayCell {
  */
 export function parsePeriodFromText(text: string): HrdCutoffPeriod | null {
   if (!text) return null;
-  // Match "16 [Month1] s.d 15 [Month2] [Year]" or "16 [Month1] - 15 [Month2] [Year]"
-  const pattern = /(\d{1,2})\s+([A-Za-z]+)\s*(?:s\.?d\.?|sampai|-)\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/i;
+  // Match "16 [Month1] s.d 15 [Month2] [Year]" or "16 [Month1] - 15 [Month2] [Year]" or "16 [Month1] s/d 15 [Month2] [Year]"
+  const pattern = /(\d{1,2})\s+([A-Za-z]+)\s*(?:s\.?d\.?|sampai|s\/d|-)\s*(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/i;
   const m = text.match(pattern);
   if (m) {
     const startDay = parseInt(m[1], 10);
     const m1Str = m[2].toLowerCase();
     const endDay = parseInt(m[3], 10);
     const m2Str = m[4].toLowerCase();
-    const year = parseInt(m[5], 10);
+    const year = m[5] ? parseInt(m[5], 10) : new Date().getFullYear();
 
     const startMonth = ID_MONTHS[m1Str] || 8;
     const endMonth = ID_MONTHS[m2Str] || 9;
@@ -250,7 +250,23 @@ export function parseHrdAttendanceExcel(
   // Convert to 2D array of raw values
   const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-  // 1. Try to detect Period from text in first 5 rows or from sheet name
+  // Look for year anywhere in the first few rows or file name
+  let detectedYear = new Date().getFullYear();
+  if (options?.fileName) {
+    const fnMatch = options.fileName.match(/\b(202\d)\b/);
+    if (fnMatch) detectedYear = parseInt(fnMatch[1], 10);
+  }
+  for (let r = 0; r < Math.min(8, rows.length); r++) {
+    for (let c = 0; c < rows[r].length; c++) {
+      const ym = String(rows[r][c] || '').match(/\b(202\d)\b/);
+      if (ym) {
+        detectedYear = parseInt(ym[1], 10);
+        break;
+      }
+    }
+  }
+
+  // 1. Try to detect Period from text in first 8 rows or from sheet name
   let detectedPeriod: HrdCutoffPeriod | null = options?.overridePeriod || null;
   let detectedBranch = options?.branchName || 'BANJARMASIN';
 
@@ -276,20 +292,21 @@ export function parseHrdAttendanceExcel(
     }
   }
 
-  // If period not found in text, infer from sheet name (e.g. "September" -> 16 Agu s.d 15 Sep 2026)
+  // If period not found in text, infer from sheet name (e.g. "September" -> 16 Agu s.d 15 Sep)
   if (!detectedPeriod) {
     const lowerSheet = targetSheetName.toLowerCase().replace(/[^a-z]/g, '');
     for (const [name, monthNum] of Object.entries(ID_MONTHS)) {
       if (lowerSheet.includes(name)) {
-        detectedPeriod = createStandardCutoffPeriod(monthNum, 2026);
+        detectedPeriod = createStandardCutoffPeriod(monthNum, detectedYear);
         break;
       }
     }
   }
 
-  // Default fallback if still not found: 16 Agu s.d 15 Sep 2026
+  // Fallback based on current date if neither text nor sheet name matched
   if (!detectedPeriod) {
-    detectedPeriod = createStandardCutoffPeriod(9, 2026);
+    const now = new Date();
+    detectedPeriod = createStandardCutoffPeriod(now.getMonth() + 1, now.getFullYear());
   }
 
   // 2. Generate date columns
