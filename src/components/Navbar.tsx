@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CalendarCheck2, Users, Building2, Sparkles, LogOut, ChevronDown, ShieldCheck } from 'lucide-react';
+import { CalendarCheck2, Users, Building2, Sparkles, LogOut, ChevronDown, ShieldCheck, FileSpreadsheet } from 'lucide-react';
 import { Branch } from '../types';
 import { AppUser } from '../auth/users';
 
 interface NavbarProps {
-  currentTab: 'rekap' | 'master';
-  onTabChange: (tab: 'rekap' | 'master') => void;
+  currentTab: 'rekap' | 'hrd' | 'master';
+  onTabChange: (tab: 'rekap' | 'hrd' | 'master') => void;
   branches: Branch[];
   currentBranch: Branch | null;
   onBranchChange: (branch: Branch) => void;
@@ -70,6 +70,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <CalendarCheck2 className={`w-4 h-4 ${currentTab === 'rekap' ? 'text-[#C00000]' : 'text-gray-400'}`} />
             <span className="hidden sm:inline">Rekap Absensi</span>
+          </button>
+          <button
+            onClick={() => onTabChange('hrd')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              currentTab === 'hrd'
+                ? 'bg-white text-gray-900 shadow-sm shadow-gray-200'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+            }`}
+          >
+            <FileSpreadsheet className={`w-4 h-4 ${currentTab === 'hrd' ? 'text-[#C00000]' : 'text-gray-400'}`} />
+            <span className="hidden sm:inline">Absensi HRD (16-15)</span>
           </button>
           <button
             onClick={() => onTabChange('master')}

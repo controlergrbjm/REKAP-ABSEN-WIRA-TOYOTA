@@ -3,6 +3,7 @@ import { Branch, Employee, AttendanceRecord, AttendanceStatus } from './types';
 import { Navbar } from './components/Navbar';
 import { RekapDashboard } from './pages/RekapDashboard';
 import { MasterEmployees } from './pages/MasterEmployees';
+import { HrdAttendancePage } from './pages/HrdAttendancePage';
 import { BranchSettingsModal } from './components/BranchSettingsModal';
 import { LoginPage } from './pages/LoginPage';
 import { AppUser, loadSession, clearSession } from './auth/users';
@@ -40,7 +41,7 @@ export function App() {
   };
 
   // ── APP STATE ─────────────────────────────────────────────────────────────
-  const [currentTab, setCurrentTab] = useState<'rekap' | 'master'>('rekap');
+  const [currentTab, setCurrentTab] = useState<'rekap' | 'hrd' | 'master'>('rekap');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
@@ -271,6 +272,8 @@ export function App() {
               onUpdatePosition={handleUpdatePosition}
               onClearAllData={handleClearAllData}
             />
+          ) : currentTab === 'hrd' ? (
+            <HrdAttendancePage branch={currentBranch} />
           ) : (
             <MasterEmployees
               branch={currentBranch}
